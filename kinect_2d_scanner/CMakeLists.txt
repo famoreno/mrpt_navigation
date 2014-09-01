@@ -9,6 +9,8 @@ find_package(catkin REQUIRED COMPONENTS roscpp sensor_msgs mrpt_bridge dynamic_r
 ## System dependencies are found with CMake's conventions
 find_package(MRPT REQUIRED COMPONENTS hwdrivers)
 
+FIND_PACKAGE( OpenCV REQUIRED)
+
 #add dynamic reconfigure api
 generate_dynamic_reconfigure_options(
   cfg/KinectTo2DScans.cfg
@@ -55,6 +57,7 @@ add_dependencies(${PROJECT_NAME}_node ${${PROJECT_NAME}_EXPORTED_TARGETS})
 target_link_libraries(${PROJECT_NAME}_node
   ${MRPT_LIBS}
    ${catkin_LIBRARIES}
+   ${OpenCV_LIBS}
 )
 
 
