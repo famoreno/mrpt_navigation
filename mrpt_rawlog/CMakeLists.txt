@@ -16,8 +16,6 @@ MESSAGE( STATUS "MRPT_INCLUDE_DIRS: " ${MRPT_INCLUDE_DIRS})
 MESSAGE( STATUS "MRPT_LIBRARY_DIRS: " ${MRPT_LIBS})
 
 
-find_package(OpenCV REQUIRED)
-
 ## Uncomment this if the package has a setup.py. This macro ensures
 ## modules and global scripts declared therein get installed
 ## See http://ros.org/doc/api/catkin/html/user_guide/setup_dot_py.html
@@ -146,13 +144,11 @@ add_dependencies(rawlog_play_node
 target_link_libraries(rawlog_record_node
    ${catkin_LIBRARIES}
    ${MRPT_LIBS}
-   ${OpenCV_LIBS}
    rawlog_record
 )
 target_link_libraries(rawlog_play_node
    ${catkin_LIBRARIES}
    ${MRPT_LIBS}
-   ${OpenCV_LIBS}
    rawlog_play
 )
 

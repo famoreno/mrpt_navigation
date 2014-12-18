@@ -260,3 +260,4 @@ void PFLocalizationNode::publishTF() {
     tf_broadcaster_.sendTransform(tmp_tf_stamped);
     //ROS_INFO("%s, %s\n", global_frame_id.c_str(), odom_frame.c_str());
 }
+

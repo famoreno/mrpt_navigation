@@ -1,6 +1,8 @@
 <launch>
 
-  <include file="$(find mrpt_localization)/launch/demo_rviz.launch" />
+  <include file="$(find mrpt_localization)/launch/rviz.launch" >
+     <arg name="file_name" value="demo" />
+   </include>
 
   <include file="$(find mrpt_rawlog)/launch/demo_rosbag.launch" />
 
