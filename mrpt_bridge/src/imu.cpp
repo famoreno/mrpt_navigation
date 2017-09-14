@@ -38,6 +38,8 @@ namespace mrpt_bridge
         obj.rawMeasurements.at(IMU_Z_VEL)   = msg.angular_velocity.z;
 
         // NEED TO WRITE CODE FOR COVARIANCE
+
+        return true;
     }
 
     /************************************************************************
@@ -64,18 +66,20 @@ namespace mrpt_bridge
         msg.angular_velocity.z      = measurements.at(IMU_Z_VEL);
 
         /// following covariance assignments might be wrong, covariances need to be double checked as per ROS message
-        msg.angular_velocity_covariance[0,0] = measurements.at(IMU_X_VEL);
-        msg.angular_velocity_covariance[1,1] = measurements.at(IMU_Y_VEL);
-        msg.angular_velocity_covariance[2,2] = measurements.at(IMU_Z_VEL);
+        msg.angular_velocity_covariance[0] = measurements.at(IMU_X_VEL); // 3x3 Row-major (0,0)
+        msg.angular_velocity_covariance[4] = measurements.at(IMU_Y_VEL); // 3x3 Row-major (1,1)
+        msg.angular_velocity_covariance[8] = measurements.at(IMU_Z_VEL); // 3x3 Row-major (2,2)
 
-        msg.linear_acceleration_covariance[0,0] = measurements.at(IMU_X_ACC_GLOBAL);
-        msg.linear_acceleration_covariance[1,1] = measurements.at(IMU_Y_ACC_GLOBAL);
-        msg.linear_acceleration_covariance[2,2] = measurements.at(IMU_Z_ACC_GLOBAL);
+        msg.linear_acceleration_covariance[0] = measurements.at(IMU_X_ACC_GLOBAL); // 3x3 Row-major (0,0)
+        msg.linear_acceleration_covariance[4] = measurements.at(IMU_Y_ACC_GLOBAL); // 3x3 Row-major (1,1)
+        msg.linear_acceleration_covariance[8] = measurements.at(IMU_Z_ACC_GLOBAL); // 3x3 Row-major (2,2)
 
-        /*msg.orientation_covariance[0,0]         = measurements.at(IMU_ORI_QUAT_X);
-        msg.orientation_covariance[1,1]         = measurements.at(IMU_ORI_QUAT_Y);
-        msg.orientation_covariance[2,2]         = measurements.at(IMU_ORI_QUAT_Z);
+        /*msg.orientation_covariance[0]         = measurements.at(IMU_ORI_QUAT_X);
+        msg.orientation_covariance[4]         = measurements.at(IMU_ORI_QUAT_Y);
+        msg.orientation_covariance[8]         = measurements.at(IMU_ORI_QUAT_Z);
          */
+
+        return true;
     }
 
 }
