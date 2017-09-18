@@ -297,7 +297,7 @@ void PFLocalizationNode::callbackRobotPose(
 	pose_cov_ops::compose(map_to_obs_pose, _msg.pose, obs_pose_world.pose);
 
 	// Ensure the covariance matrix can be inverted (no zeros in the diagonal)
-	for (int i = 0; i < obs_pose_world.pose.covariance.size(); ++i)
+        for (size_t i = 0; i < obs_pose_world.pose.covariance.size(); ++i)
 	{
 		if (i / 6 == i % 6 && obs_pose_world.pose.covariance[i] <= 0.0)
 			obs_pose_world.pose.covariance[i] =
@@ -418,7 +418,7 @@ void PFLocalizationNode::updateSensorPose(std::string _frame_id)
 		pose.x() = translation.x();
 		pose.y() = translation.y();
 		pose.z() = translation.z();
-		double roll, pitch, yaw;
+                // double roll, pitch, yaw;
 		tf::Matrix3x3 Rsrc(quat);
 		mrpt::math::CMatrixDouble33 Rdes;
 		for (int c = 0; c < 3; c++)
