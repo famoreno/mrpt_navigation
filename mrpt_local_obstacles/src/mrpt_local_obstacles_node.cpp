@@ -77,21 +77,25 @@ class LocalObstaclesNode
 
 	mrpt::utils::CTimeLogger m_profiler;
 
-	TAuxInitializer m_auxinit;  //!< Just to make sure ROS is init first
-	ros::NodeHandle m_nh;  //!< The node handle
-	ros::NodeHandle m_localn;  //!< "~"
+        TAuxInitializer m_auxinit;  //!< Just to make sure ROS is init first
+        ros::NodeHandle m_nh;  //!< The node handle
+        ros::NodeHandle m_localn;  //!< "~"
 	bool m_show_gui;
-	std::string m_frameid_reference;  //!< typ: "odom"
-	std::string m_frameid_robot;  //!< typ: "base_link"
-	std::string
-		m_topic_local_map_pointcloud;  //!< Default: "local_map_pointcloud"
-	std::string m_source_topics_2dscan;  //!< Default: "scan,laser1"
+        std::string m_frameid_reference;  //!< typ: "odom"
+        std::string m_frameid_robot;  //!< typ: "base_link"
+	std::vector<double> m_robot_heights; //!< robot's heights sections from the ground
+        std::string
+                m_topic_local_map_pointcloud;  //!< Default: "local_map_pointcloud"
+        std::string m_source_topics_2dscan;  //!< Default: "scan,laser1"
         std::string m_source_topics_depthcam; //!< Default: "depthcam"
-	double m_time_window;  //!< In secs (default: 0.2). This can't be smaller
+        double m_time_window;  //!< In secs (default: 0.2). This can't be smaller
 	//! than m_publish_period
-	double m_publish_period;  //!< In secs (default: 0.05). This can't be larger
+        double m_publish_period;  //!< In secs (default: 0.05). This can't be larger
 	//! than m_time_window
 
+        double m_z_min;  //!< Minimum z value valid for a point to be inserted in the map
+        //! In meters (default: 0.05)
+        //!
 	ros::Timer m_timer_publish;
 
 	// Sensor data:
@@ -164,12 +168,89 @@ class LocalObstaclesNode
                 }
 
                 // Convert data to MRPT format:
-                // mrpt::poses::CPose3D sensorOnRobot_mrpt;
-                // mrpt_bridge::convert(sensorOnRobot, sensorOnRobot_mrpt);
+                mrpt::poses::CPose3D sensorOnRobot_mrpt;
+                mrpt_bridge::convert(sensorOnRobot, sensorOnRobot_mrpt);
+
                 // In MRPT, CSimplePointsMap holds sensor data:
+                CSimplePointsMap::Ptr auxObsPointMap =
+                        mrpt::make_aligned_shared<CSimplePointsMap>();
+                mrpt_bridge::copy(*scan, *auxObsPointMap);
+                auxObsPointMap->changeCoordinatesReference(sensorOnRobot_mrpt);
+
+                // obsPointMap contains the cloud point wrt the robot reference system
+		std::vector<double> zlimits = m_robot_heights;
+		
+                const size_t num_areas = zlimits.size();
+                const size_t num_points = auxObsPointMap->size();
+
+                // create a vector of angles and ranges for each area
+                std::vector< std::vector<int> > angles(num_areas,std::vector<int>(360,-1));
+                std::vector< std::vector<double> > ranges(num_areas,std::vector<double>(num_points,0.0));
+
+                /** / // OPTIONAL, THIS SHOULD BE FASTER, EXPLORE IT IF NECESSARY
+                float *x, *y, *z;
+                size_t num_points;
+                obsPointMap1->getPointsBuffer(num_points,x,y,z);
+                /**/
+
+                float x,y,z;
+                for( size_t k = 0; k < num_points; ++k )
+                {
+                    // get the point
+                    auxObsPointMap->getPointFast(k,x,y,z);
+
+                    // determine the area where the point is (z_area will contain the current index)
+                    size_t z_area = 0;
+                    bool found = false;
+                    for( size_t count = 0; count < num_areas && !found; ++count )
+                    {
+                        if( z > m_z_min && z < zlimits[count] )
+                        {
+                            z_area = count;
+                            found = true;
+                        }
+                    }
+
+                    if(!found) continue; // this point is below the 'z_min' limit
+
+                    // compute range ...
+                    const double this_range = sqrt(x*x+y*y+z*z);
+                    ranges[z_area][k] = this_range;
+
+                    // ... and angle
+                    const double angle_r = M_PI+atan2(y,x);         // atan2 results in [-PI->PI] ==> angle in radians (0->2PI)
+                    const int angle_d = floor(180/M_PI*angle_r);    // angle in degrees is the index of the vector (0->359)
+
+                    const int cur_idx = angles[z_area][angle_d];
+                    if( cur_idx == -1 )
+                    {
+                        angles[z_area][angle_d] = k;
+                    }
+                    else if (this_range < ranges[z_area][cur_idx] )
+                    {
+                        angles[z_area][angle_d] = k;
+                    }
+                }
+
                 CSimplePointsMap::Ptr obsPointMap =
                         mrpt::make_aligned_shared<CSimplePointsMap>();
-                mrpt_bridge::copy(*scan, *obsPointMap);
+
+                // insert points in the output map
+                for( size_t k = 0; k < num_areas; ++k )
+                {
+                    for( size_t a = 0; a < 360; ++a )
+                    {
+                        const int cur_idx = angles[k][a];
+
+                        // only insert the valid points
+                        if( cur_idx != -1 )
+                        {
+                            auxObsPointMap->getPointFast(cur_idx,x,y,z);
+                            obsPointMap->insertPoint(x,y,z);
+                        } // end-if
+                    } // end-for
+               } // end-for
+
 
                 ROS_DEBUG(
                         "[onNewSensor_DepthCam] %u points",
@@ -486,10 +567,15 @@ class LocalObstaclesNode
 		  m_source_topics_2dscan("scan,laser1"),
                   m_source_topics_depthcam("depthcam"),
 		  m_time_window(0.2),
-		  m_publish_period(0.05)
+                  m_publish_period(0.01),
+                  m_z_min(0.05)
 	{
+		m_robot_heights.resize(1);
+		m_robot_heights[0] = 1.2; 	// default 1 zone [0,1.2] m
+
 		// Load params:
 		m_localn.param("show_gui", m_show_gui, m_show_gui);
+		m_localn.param("robot_heights", m_robot_heights, m_robot_heights);
 		m_localn.param(
 			"frameid_reference", m_frameid_reference, m_frameid_reference);
 		m_localn.param("frameid_robot", m_frameid_robot, m_frameid_robot);
@@ -502,6 +588,7 @@ class LocalObstaclesNode
                 m_localn.param(
                         "source_topics_depthcam", m_source_topics_depthcam,
                         m_source_topics_depthcam);
+                m_localn.param("z_min", m_z_min, m_z_min);
                 m_localn.param("time_window", m_time_window, m_time_window);
 		m_localn.param("publish_period", m_publish_period, m_publish_period);
 
